@@ -14,19 +14,13 @@ const { getTeamMembers } = require('./api/github');
 /**
  * Gets a list of users from a GitHub team
  * @param {[]} githubTeam The GitHub team from which to extract the members.
- * @param {[]} teacherTeam The GitHub teachers team used for filtering out teachers from classes.
- * @param {boolean} filterTeachers Indicates whether teacher should be filtered out.
  */
-function getTeamUsers(githubTeam, teacherTeam, filterTeachers = true) {
-  const isTeacher = member => teacherTeam.members.find(teacher => teacher.login === member.login);
-  const members = filterTeachers
-    ? githubTeam.members.filter(member => !isTeacher(member))
-    : githubTeam.members;
-  return members.map(member => ({
+function getTeamUsers(githubTeam) {
+  return githubTeam.members.map(member => ({
     username: member.login,
     full_name: member.name,
     email: member.email,
-    role: filterTeachers ? 'student' : 'teacher',
+    role: githubTeam.teamName === 'teachers' ? 'teacher' : 'student',
   }));
 }
 
@@ -36,17 +30,11 @@ function getTeamUsers(githubTeam, teacherTeam, filterTeachers = true) {
  * @param {[team]} teams An array of GitHub teams
  */
 function getUniqueUsersFromTeams(teams) {
-  const teacherTeam = teams.find(team => team.teamName === 'teachers') || [];
-  const classTeams = teams.filter(team => /^class.\d+$/.test(team.teamName));
-
   const userMap = new Map();
 
-  classTeams
-    .forEach(team => getTeamUsers(team, teacherTeam)
+  teams
+    .forEach(team => getTeamUsers(team)
       .forEach(user => userMap.set(user.username, user)));
-
-  getTeamUsers(teacherTeam, teacherTeam, false)
-    .forEach(user => userMap.set(user.username, user));
 
   return [...userMap.values()].sort((a, b) => a.username.localeCompare(b.username));
 }
@@ -99,18 +87,20 @@ async function rebuildMemberships(con, githubTeams) {
   const groups = await getGroups(con);
 
   const groupAndUserIds = [];
-  githubTeams.forEach((team) => {
-    const group = groups.find(g => g.group_name === team.teamName);
-    if (group) {
-      const groupId = group.id;
-      team.members.forEach((member) => {
-        const user = hyferUsers.find(u => u.username === member.login);
-        if (user) {
-          groupAndUserIds.push([groupId, user.id]);
-        }
-      });
-    }
-  });
+  githubTeams
+    .forEach((team) => {
+      const group = groups.find(g => g.group_name === team.teamName);
+      if (group) {
+        const groupId = group.id;
+        team.members
+          .forEach((member) => {
+            const user = hyferUsers.find(u => u.username === member.login);
+            if (user && user.role !== 'teacher') {
+              groupAndUserIds.push([groupId, user.id]);
+            }
+          });
+      }
+    });
 
   bulkUpdateMemberships(con, groupAndUserIds);
 }
