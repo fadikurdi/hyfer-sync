@@ -31,11 +31,9 @@ function getTeamUsers(githubTeam) {
  */
 function getUniqueUsersFromTeams(teams) {
   const userMap = new Map();
-
   teams
-    .forEach(team => getTeamUsers(team)
-      .forEach(user => userMap.set(user.username, user)));
-
+    .map(team => getTeamUsers(team))
+    .forEach(team => team.forEach(user => userMap.set(user.username, user)));
   return [...userMap.values()].sort((a, b) => a.username.localeCompare(b.username));
 }
 
@@ -87,22 +85,39 @@ async function rebuildMemberships(con, githubTeams) {
   const groups = await getGroups(con);
 
   const groupAndUserIds = [];
-  githubTeams
-    .forEach((team) => {
-      const group = groups.find(g => g.group_name === team.teamName);
-      if (group) {
-        const groupId = group.id;
-        team.members
-          .forEach((member) => {
-            const user = hyferUsers.find(u => u.username === member.login);
-            if (user && user.role !== 'teacher') {
-              groupAndUserIds.push([groupId, user.id]);
-            }
-          });
-      }
-    });
+  githubTeams.forEach((team) => {
+    const group = groups.find(g => g.group_name === team.teamName);
+    if (group) {
+      const groupId = group.id;
+      team.members.forEach((member) => {
+        const user = hyferUsers.find(u => u.username === member.login);
+        if (user) {
+          groupAndUserIds.push([groupId, user.id]);
+        }
+      });
+    }
+  });
 
   bulkUpdateMemberships(con, groupAndUserIds);
+}
+
+function isTeamMember(member, teachersTeam) {
+  return teachersTeam.members.find(teacher => teacher.login === member.login);
+}
+
+/**
+ * Removes teachers from class teams
+ * @param {[]} githubTeams Unfiltered GitHub teams
+ */
+function removeTeacherFromClasses(githubTeams) {
+  const teachersTeam = githubTeams.find(team => team.teamName === 'teachers') || [];
+  const classTeams = githubTeams.filter(team => /^class\d+$/.test(team.teamName));
+  const teams = classTeams.map((team) => {
+    const students = team.members.filter(member => !isTeamMember(member, teachersTeam));
+    return Object.assign({}, team, { members: students });
+  });
+  teams.push(teachersTeam);
+  return teams;
 }
 
 /**
@@ -110,8 +125,10 @@ async function rebuildMemberships(con, githubTeams) {
  */
 async function syncGitHubTeams() {
   const githubTeams = await getTeamMembers();
+  const teams = removeTeacherFromClasses(githubTeams);
+
   const con = await db.getConnection();
-  const githubUsers = getUniqueUsersFromTeams(githubTeams);
+  const githubUsers = getUniqueUsersFromTeams(teams);
   const hyferUsers = await getUsers(con);
 
   const userInserts = [];
@@ -136,10 +153,9 @@ async function syncGitHubTeams() {
     await bulkUpdateUsers(con, userUpdates);
   }
 
-  await createNewClasses(con, githubTeams);
-  await rebuildMemberships(con, githubTeams);
+  await createNewClasses(con, teams);
+  await rebuildMemberships(con, teams);
 }
-
 
 async function main() {
   try {
