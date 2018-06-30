@@ -6,10 +6,11 @@ This is a stand-alone version of the Hyfer GitHub sync functionality.
 
 1. Create an empty test database, named `hyfer-sync`.
 2. Grant the MySQL `hyfer` user full access to the `hyfer-sync` database.
-3. Source the new database with the SQL dump file from the `sql` folder.
-4. While in the project folder, install the node packages with the command `yarn`.
-5. Copy the `.env-sample` to `.env` and add your database credentials for the `hyfer-sync` database.
-6. Run the application by typing `yarn start`.
+3. Source the new database from the SQL dump file from `sql` folder of `hyfer-backend` project.
+4. Add the module definitions by sourcing the database with the SQL dump file from the `sql` folder in this project.
+5. While in the project folder, install the node packages with the command `yarn`.
+6. Copy the `.env-sample` to `.env` and add your database credentials for the `hyfer-sync` database.
+7. Run the application by typing `yarn start`.
 
 ## Discussion
 
