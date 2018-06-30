@@ -151,7 +151,7 @@ async function syncGitHubTeams() {
 }
 
 
-async function githubSync() {
+async function main() {
   try {
     await syncGitHubTeams();
     console.log('sync was completed successfully');
@@ -160,6 +160,6 @@ async function githubSync() {
   }
 }
 
-githubSync();
+main();
 
-// TODO: wrap eveything in a database transaction
+// TODO: wrap everything in a database transaction
