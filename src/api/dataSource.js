@@ -9,12 +9,6 @@ function getTeamMembers() {
     .then(data => JSON.parse(data));
 }
 
-function getGroups() {
-  return readFile(path.join(__dirname, '../json/groups.json'), 'utf8')
-    .then(data => JSON.parse(data));
-}
-
 module.exports = {
   getTeamMembers,
-  getGroups,
 };
